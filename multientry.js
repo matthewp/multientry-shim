@@ -14,21 +14,6 @@
 
   var multiEntryItems = [];
 
-  /*
-  * Return the first item in an array that meets a condition.
-  */
-  function find(array, iterator, context) {
-    for(var i = 0; i < array.length; i++) {
-      var item = array[i];
-      var result = iterator.call(context, item, i, array);
-      if(result) {
-        return item;
-      }
-    }
-
-    return undefined;
-  }
-
   function openDatabase(callback) {
     var req = window.indexedDB.open(DBNAME, 1);
 
