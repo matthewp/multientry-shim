@@ -50,17 +50,18 @@
       req.onsuccess = function (e) {
         // TODO do the things to save the multi entries.
         var key = e.target.result;
+        var self = this, args = arguments;
 
         openDatabase(function(db) {
           var objectStore = db.transaction([OSNAME], 'readwrite').objectStore(OSNAME);
+          // TODO We need the keyPath to know where the values lie.
+          // TODO We need to grab all of the current values to know which are new,
+          // and which no longer exist.
 
-
-
+          if(onsuccess) {
+            onsuccess.apply(self, args);
+          }
         });
-
-        if(onsuccess) {
-          onsuccess.apply(this, arguments);
-        }
       };
 
       Object.defineProperty(req, 'onsuccess', {
