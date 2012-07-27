@@ -62,60 +62,108 @@
 
   })();
 
+  function hijackSetter(func, args, value) {
+    var osName = this.name, dbName = this.transaction.database.name;
+
+    var indices = multiEntryItems.filter(function(item) {
+      return item.database === dbName && item.objectStore === osName;
+    });
+
+    if(!indices.length) {
+      // This objectStore doesn't have any multiEntry indices.
+      return func.apply(this, args);
+    }
+
+    var currentValues = indices.map(function(item) {
+      return {
+        keyPath: item.keyPath,
+        values: value[item.keyPath]
+      };
+    }).reduce(function(a, b) {
+      a[b.keyPath] = b.values;
+
+      return a;
+    }, {});
+
+    var req = func.apply(this, args),
+        onsuccess;
+
+    req.onsuccess = function(e) {
+      var key = e.target.result;
+      var self = this, args = arguments;
+
+      openDatabase(function(db) {
+        var objectStore = db.transaction([OSNAME], 'readwrite').objectStore(OSNAME),
+            index = objectStore.index('IX_key');
+
+        index.openCursor(IDBKeyRange.only(key)).onsuccess = function(e) {
+          var cursor = e.target.result;
+          if(cursor) {
+            var item = cursor.value;
+
+            if(value[item.keyPath] && value[item.keyPath].indexOf(item.value) !== -1) {
+              // This value is present.
+              var indexOfItem = currentValues[item.keyPath].indexOf(item.value);
+              currentValues[item.keyPath].splice(indexOfItem, 1);
+            } else {
+              // item value doesn't exist in the object, remove it.
+              cursor.delete();
+            }
+
+            cursor.continue();
+            return;
+          }
+
+          // Now only stuff remaining is what needs to be added.
+          var count = Object.keys(currentValues).map(function(keyPath) {
+            return currentValues[keyPath].length;
+          }).reduce(function(a, b) {
+            return a + b;
+          });
+
+          Object.keys(currentValues).forEach(function(keyPath) {
+            currentValues[keyPath].forEach(function(itemValue) {
+              objectStore.put({
+                key: key,
+                keyPath: keyPath,
+                value: itemValue
+              }).onsuccess = function(e) {
+                count--;
+
+                if(!count && onsuccess) {
+                  // All done.
+                  onsuccess.apply(self, args);
+                }
+              };
+            });
+          });
+        };
+      });
+    };
+
+    Object.defineProperty(req, 'onsuccess', {
+      set: function(value) {
+        onsuccess = value;
+      }
+    });
+
+    return req;
+  }
+
+  IDBObjectStore.prototype.add = (function() {
+    var add =IDBObjectStore.prototype.add;
+
+    return function(value) {
+      return hijackSetter.call(this, add, arguments, value);
+    };
+
+  })();
+
   IDBObjectStore.prototype.put = (function() {
     var put = IDBObjectStore.prototype.put;
 
     return function(value) {
-      var osName = this.name;
-
-      var indices = multiEntryItems.filter(function(item) {
-        return item.objectStore.name == osName;
-      });
-
-      if(!arr.length) {
-        return put.apply(this, arguments);
-      }
-
-      var req = put.apply(this, arguments),
-          onsuccess;
-
-      req.onsuccess = function(e) {
-        // TODO do the things to save the multi entries.
-        var key = e.target.result;
-        var self = this, args = arguments;
-
-        openDatabase(function(db) {
-          var objectStore = db.transaction([OSNAME], 'readwrite').objectStore(OSNAME);
-          // TODO We need the keyPath to know where the values lie.
-          // TODO We need to grab all of the current values to know which are new,
-          // and which no longer exist.
-          var index = objectStore.index('IX_key'),
-              currentValues = [];
-          index.openCursor(IDBKeyRange.only(key)).onsuccess = function(e) {
-            var cursor = e.target.result;
-            if(cursor) {
-              currentValues.push(cursor.value);
-              cursor.continue();
-
-              return;
-            }
-
-            // TODO Find the differences, delete some, insert others.
-          };
-
-          if(onsuccess) {
-            onsuccess.apply(self, args);
-          }
-        });
-      };
-
-      Object.defineProperty(req, 'onsuccess', {
-        set: function(value) {
-          onsuccess = value;
-        }
-      });
-
-      return req;
+      return hijackSetter.call(this, put, arguments, value);
     };
 
   })();
