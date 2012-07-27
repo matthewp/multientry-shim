@@ -5,6 +5,7 @@
     return;  // Supported! Exit.
   }
 
+  // Allow legacy suppot for IDBTransation.READ* properties.
   var READ_ONLY = IDBTransaction.READ_ONLY || 'readonly',
       READ_WRITE = IDBTransaction.READ_WRITE || 'readwrite';
 
@@ -167,6 +168,58 @@
     };
 
   })();
+
+  IDBIndex.prototype.openCursor = (function() {
+    var openCursor = IDBIndex.prototype.openCursor;
+
+    return function(range, direction) {
+      var idxName = this.name, osName = this.objectStore.name,
+          dbName = this.objectStore.transaction.database.name,
+          objectStore = this.objectStore;
+
+      var indexItem = multiEntryItems.filter(function(item) {
+        return item.database === dbName
+          && item.objectStore === osName
+          && item.index === idxName;
+      })[0];
+
+      if(!indexItem) {
+        return openCursor.apply(this, arguments);
+      }
+
+      var req = Object.create(IDBRequest.prototype);
+
+      openDatabase(function(db) {
+        var valuesObjectStore = db.transaction([VALUESOS], READ_WRITE).objectStore(VALUESOS),
+            index = valuesObjectStore.index('IX_value');
+
+        index.openCursor(range, directon).onsuccess = function(e) {
+          var valueCursor = e.target.result;
+          if(valueCursor) {
+            objectStore.get(valueCursor.value.key).onsuccess = function(itemValue) {
+              var f = e;
+              f.target.result.key = valueCursor.value.key;
+              f.target.result.value = itemValue;
+              f.target.result.continue = function() {
+                valueCursor.continue.apply(valueCursor, arguments);
+              };
+
+              if(req.onsuccess) {
+                req.onsuccess(f);
+              }
+            }
+          } else {
+            if(req.onsuccess) {
+              req.onsuccess(e);
+            }
+          }
+        };
+      });
+
+      return req;
+    };
+
+  });
 
   /* After the page loads, open the database (creating it if necessary) and load
   * all of the keys into memory.

@@ -3,3 +3,6 @@ window.indexedDB = window.indexedDB
 
 window.IDBTransaction = window.IDBTransaction
   || window.webkitIDBTransaction;
+
+window.IDBRequest = window.IDBRequest
+  || window.webkitIDBRequest;
