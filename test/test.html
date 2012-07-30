@@ -1,0 +1,31 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Gazel Tests</title>
+  <link rel="stylesheet" href="/test/res/mocha.css" />
+  <script src="/test/res/assert.js"></script>
+  <script src="/test/res/mocha.js"></script>
+  <script src="/test/res/underscore-min.js"></script>
+
+  <script src="/vendors.js"></script>
+  <script src="/upgradeneeded.js"></script>
+  <script src="/multientry.js"></script>
+  <script>
+    mocha.setup('bdd');
+  </script>
+  <script src="/test/app.js"></script>
+  <script src="/test/tests.js"></script>
+  <script>
+    window.addEventListener('load', function onLoad() {
+      window.removeEventListener('load', onLoad);
+
+      Application.deleteDatabase(function() {
+        mocha.run().globals(['location']);
+      });
+    }, false);
+  </script>
+</head>
+<body>
+  <div id="mocha"></div>
+</body>
+</html>
