@@ -64,7 +64,7 @@
   })();
 
   function hijackSetter(func, args, value) {
-    var osName = this.name, dbName = this.transaction.database.name;
+    var osName = this.name, dbName = this.transaction.db.name;
 
     var indices = multiEntryItems.filter(function(item) {
       return item.database === dbName && item.objectStore === osName;

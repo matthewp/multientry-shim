@@ -17,12 +17,14 @@
       reqSuccess = req.onsuccess = function(e) {
         var db = e.target.result;
 
-        if(db.setVersion && Number(db.version) !== version) {
+        if(Number(db.version) !== version) {
           var dbReq = setVersion.call(db, String(version));
 
           dbReq.onsuccess = function(e2) {
-            var e3 = e2;
-            e3.target.result = e2.target.result.db;
+            var e3 = e2, newDB = e2.target.result.db;
+            Object.defineProperty(e3.target, 'result', {
+              get: function() { return newDB }
+            });
 
             if(req.onupgradeneeded) {
               req.onupgradeneeded(e3);

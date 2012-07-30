@@ -1,8 +1,8 @@
 describe('Get', function() {
   "use strict";
 
-  var READ_WRITE = 'readwrite',
-      READ_ONLY = 'readonly';
+  var READ_ONLY = IDBTransaction.READ_ONLY || 'readonly',
+      READ_WRITE = IDBTransaction.READ_WRITE || 'readwrite';
 
   var db;
   before(function(done) {
