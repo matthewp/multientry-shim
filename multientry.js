@@ -23,6 +23,7 @@
 
       if(!db.objectStoreNames.contains(INDEXOS)) {
         var indexObjectStore = db.createObjectStore(INDEXOS, { autoIncrement: true });
+        indexObjectStore.createIndex('IX_db', 'database');
       }
 
       if(!db.objectStoreNames.contains(VALUESOS)) {
@@ -63,6 +64,39 @@
 
   })();
 
+  IDBFactory.prototype.deleteDatabase = (function() {
+    var deleteDatabase = IDBFactory.prototype.deleteDatabase;
+
+    return function(name) {
+      var req = deleteDatabase.apply(this, arguments), onsuccess;
+
+      req.onsuccess = function() {
+        var args = arguments;
+
+        openDatabase(function(db) {
+          var index = db.transaction([INDEXOS], READ_WRITE).objectStore(INDEXOS).index('IX_db');
+          index.openCursor(IDBKeyRange.only(name)).onsuccess = function(e) {
+            var cursor = e.target.result;
+            if(cursor) {
+              cursor.delete();
+            } else if(onsuccess) {
+              onsuccess.apply(req, args);
+            }
+          };
+        });
+      };
+
+      Object.defineProperty(req, 'onsuccess', {
+        set: function(value) {
+          onsuccess = value;
+        }
+      });
+
+      return req;
+    };
+
+  })();
+
   function hijackSetter(func, args, value) {
     var osName = this.name, dbName = this.transaction.db.name;
 
@@ -94,7 +128,7 @@
       var self = this, args = arguments;
 
       openDatabase(function(db) {
-        var objectStore = db.transaction([OSNAME], 'readwrite').objectStore(OSNAME),
+        var objectStore = db.transaction([VALUESOS], 'readwrite').objectStore(VALUESOS),
             index = objectStore.index('IX_key');
 
         index.openCursor(IDBKeyRange.only(key)).onsuccess = function(e) {
@@ -174,8 +208,8 @@
 
     return function(range, direction) {
       var idxName = this.name, osName = this.objectStore.name,
-          dbName = this.objectStore.transaction.database.name,
-          objectStore = this.objectStore;
+          dbName = this.objectStore.transaction.db.name,
+          objectStore = this.objectStore, self = this;
 
       var indexItem = multiEntryItems.filter(function(item) {
         return item.database === dbName
@@ -193,7 +227,7 @@
         var valuesObjectStore = db.transaction([VALUESOS], READ_WRITE).objectStore(VALUESOS),
             index = valuesObjectStore.index('IX_value');
 
-        index.openCursor(range, directon).onsuccess = function(e) {
+        openCursor.call(self, range, direction).onsuccess = function(e) {
           var valueCursor = e.target.result;
           if(valueCursor) {
             objectStore.get(valueCursor.value.key).onsuccess = function(itemValue) {
@@ -219,7 +253,7 @@
       return req;
     };
 
-  });
+  })();
 
   /* After the page loads, open the database (creating it if necessary) and load
   * all of the keys into memory.

@@ -12,3 +12,9 @@ window.IDBIndex = window.IDBIndex
 
 window.IDBObjectStore = window.IDBObjectStore
   || window.webkitIDBObjectStore;
+
+window.IDBKeyRange = window.IDBKeyRange
+  || window.webkitIDBKeyRange;
+
+window.IDBFactory = window.IDBFactory
+  || window.webkitIDBFactory;
