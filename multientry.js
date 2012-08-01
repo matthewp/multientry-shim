@@ -1,6 +1,6 @@
 (function(undefined) {
   "use strict";
-
+//test
   if(typeof IDBIndex.prototype.multiEntry !== 'undefined') {
     return;  // Supported! Exit.
   }
